@@ -1,250 +1,404 @@
 """
-Módulo: Motor de Inferencia
-Responsable: Harry (Integrante 3)
-
-Descripción:
-    - Implementa la lógica de razonamiento basado en reglas
-    - Compara síntomas del usuario con la base de conocimiento
-    - Calcula coincidencias y determina el diagnóstico más probable
-
-Funcionalidades:
-    - Algoritmo de matching de síntomas
-    - Cálculo de porcentaje de coincidencia
-    - Ranking de enfermedades probables
-    - Interfaz de ejecución y resultados en Streamlit
+Motor de Inferencia para Diagnóstico Médico
+Implementa algoritmos de razonamiento forward y backward chaining
 """
 
-import streamlit as st
+from typing import List, Dict, Tuple, Optional, Set
+from dataclasses import dataclass, field
+import math
+from symptoms import PatientSymptoms, SymptomRegistry, SeverityLevel
+from knowledge_base import KnowledgeBase, Disease, Urgency
 
 
-# ====================================
-# MOTOR DE INFERENCIA
-# ====================================
-
-def calculate_match(user_symptoms, disease_symptoms):
-    """
-    Calcula el porcentaje de coincidencia entre síntomas del usuario
-    y síntomas de una enfermedad.
+@dataclass
+class DiagnosisResult:
+    """Resultado de un diagnóstico"""
+    disease: Disease
+    confidence: float  # 0.0 - 1.0
+    matched_symptoms: Set[str] = field(default_factory=set)
+    missing_key_symptoms: Set[str] = field(default_factory=set)
+    explanation: str = ""
+    risk_level: str = "BAJO"
     
-    Args:
-        user_symptoms (list): Síntomas seleccionados por el usuario
-        disease_symptoms (list): Síntomas asociados a la enfermedad
-    
-    Returns:
-        float: Porcentaje de coincidencia (0.0 - 1.0)
-    
-    TODO (Harry):
-        - Implementar algoritmo de matching
-        - Considerar diferentes estrategias:
-            * Intersección simple
-            * Coeficiente de Jaccard
-            * Ponderación de síntomas críticos
-    
-    Ejemplo:
-        user: ["fiebre", "tos", "dolor de cabeza"]
-        disease: ["fiebre", "tos", "dolor de cabeza", "congestión"]
-        match: 3/4 = 0.75 (75%)
-    """
-    match_percentage = 0.0
-    
-    # TODO: Implementar cálculo de coincidencia
-    
-    return match_percentage
+    def __lt__(self, other):
+        """Permite ordenar resultados por confianza"""
+        return self.confidence < other.confidence
 
 
-def infer_diagnosis(user_symptoms, knowledge_base):
-    """
-    Realiza la inferencia completa: evalúa todas las enfermedades
-    y retorna las más probables.
+class InferenceEngine:
+    """Motor de inferencia para diagnóstico médico"""
     
-    Args:
-        user_symptoms (list): Síntomas del usuario
-        knowledge_base (dict): Base de conocimiento completa
+    def __init__(self, knowledge_base: KnowledgeBase, symptom_registry: SymptomRegistry):
+        self.kb = knowledge_base
+        self.registry = symptom_registry
+        
+        # Pesos para el cálculo de confianza
+        self.WEIGHT_REQUIRED = 0.4
+        self.WEIGHT_COMMON = 0.35
+        self.WEIGHT_OPTIONAL = 0.15
+        self.WEIGHT_EXCLUDING = 0.10
+        
+        # Umbrales
+        self.MIN_CONFIDENCE_THRESHOLD = 0.25
+        self.HIGH_CONFIDENCE_THRESHOLD = 0.70
     
-    Returns:
-        list: Lista de tuplas (enfermedad, porcentaje) ordenadas por probabilidad
+    def diagnose(self, patient_symptoms: PatientSymptoms, 
+                max_results: int = 5) -> List[DiagnosisResult]:
+        """
+        Realiza el diagnóstico basado en los síntomas del paciente
+        Utiliza forward chaining para evaluar todas las enfermedades
+        """
+        results = []
+        
+        for disease in self.kb.get_all_diseases():
+            # Calcular confianza para cada enfermedad
+            diagnosis = self._evaluate_disease(disease, patient_symptoms)
+            
+            # Solo incluir si supera el umbral mínimo
+            if diagnosis.confidence >= self.MIN_CONFIDENCE_THRESHOLD:
+                results.append(diagnosis)
+        
+        # Ordenar por confianza (descendente)
+        results.sort(reverse=True)
+        
+        # Normalizar confianzas si es necesario
+        if results:
+            results = self._normalize_confidences(results)
+        
+        # Retornar top resultados
+        return results[:max_results]
     
-    TODO (Harry):
-        - Implementar lógica de inferencia
-        - Iterar sobre todas las enfermedades
-        - Calcular match para cada una
-        - Ordenar por porcentaje descendente
-        - Filtrar resultados con match muy bajo (threshold)
-    """
-    results = []
+    def _evaluate_disease(self, disease: Disease, 
+                         patient_symptoms: PatientSymptoms) -> DiagnosisResult:
+        """Evalúa una enfermedad específica contra los síntomas del paciente"""
+        
+        patient_symptom_ids = patient_symptoms.symptoms
+        
+        # Verificar síntomas requeridos
+        required_match = disease.required_symptoms & patient_symptom_ids
+        required_score = (len(required_match) / len(disease.required_symptoms) 
+                         if disease.required_symptoms else 1.0)
+        
+        # Si no cumple con síntomas requeridos, confianza muy baja
+        if required_score < 0.5:
+            return DiagnosisResult(
+                disease=disease,
+                confidence=required_score * 0.3,
+                matched_symptoms=required_match,
+                missing_key_symptoms=disease.required_symptoms - patient_symptom_ids,
+                explanation="No cumple con síntomas requeridos principales"
+            )
+        
+        # Verificar síntomas comunes
+        common_match = disease.common_symptoms & patient_symptom_ids
+        common_score = (len(common_match) / len(disease.common_symptoms) 
+                       if disease.common_symptoms else 0.5)
+        
+        # Verificar síntomas opcionales
+        optional_match = disease.optional_symptoms & patient_symptom_ids
+        optional_score = (len(optional_match) / len(disease.optional_symptoms) 
+                         if disease.optional_symptoms else 0.5)
+        
+        # Penalizar por síntomas excluyentes
+        excluding_match = disease.excluding_symptoms & patient_symptom_ids
+        excluding_penalty = len(excluding_match) * 0.15
+        
+        # Calcular confianza ponderada
+        confidence = (
+            self.WEIGHT_REQUIRED * required_score +
+            self.WEIGHT_COMMON * common_score +
+            self.WEIGHT_OPTIONAL * optional_score -
+            self.WEIGHT_EXCLUDING * excluding_penalty
+        )
+        
+        # Ajustar por severidad de síntomas
+        severity_multiplier = self._calculate_severity_multiplier(
+            patient_symptoms, required_match | common_match
+        )
+        confidence *= severity_multiplier
+        
+        # Ajustar por duración de síntomas
+        duration_multiplier = self._calculate_duration_multiplier(
+            patient_symptoms, required_match | common_match
+        )
+        confidence *= duration_multiplier
+        
+        # Asegurar que esté en rango [0, 1]
+        confidence = max(0.0, min(1.0, confidence))
+        
+        # Determinar nivel de riesgo
+        risk_level = self._determine_risk_level(disease, confidence, patient_symptoms)
+        
+        # Generar explicación
+        explanation = self._generate_explanation(
+            disease, required_match, common_match, optional_match,
+            excluding_match, confidence
+        )
+        
+        # Síntomas clave faltantes
+        missing_key = disease.required_symptoms - patient_symptom_ids
+        
+        return DiagnosisResult(
+            disease=disease,
+            confidence=confidence,
+            matched_symptoms=required_match | common_match | optional_match,
+            missing_key_symptoms=missing_key,
+            explanation=explanation,
+            risk_level=risk_level
+        )
     
-    # TODO: Implementar motor de inferencia
-    # Pseudocódigo:
-    # for disease_name, disease_info in knowledge_base.items():
-    #     disease_symptoms = disease_info['symptoms']
-    #     match = calculate_match(user_symptoms, disease_symptoms)
-    #     results.append((disease_name, match))
-    # 
-    # results.sort(key=lambda x: x[1], reverse=True)
-    # return results
+    def _calculate_severity_multiplier(self, patient_symptoms: PatientSymptoms,
+                                       matched_symptoms: Set[str]) -> float:
+        """Calcula multiplicador basado en severidad de síntomas"""
+        if not matched_symptoms:
+            return 1.0
+        
+        total_severity = 0
+        count = 0
+        
+        for symptom_id in matched_symptoms:
+            severity = patient_symptoms.get_severity(symptom_id)
+            if severity:
+                total_severity += severity.value
+                count += 1
+        
+        if count == 0:
+            return 1.0
+        
+        avg_severity = total_severity / count
+        
+        # Normalizar: severidad promedio de 2.0 = multiplicador 1.0
+        # Mayor severidad aumenta confianza
+        multiplier = 0.8 + (avg_severity - 1) * 0.15
+        return max(0.7, min(1.3, multiplier))
     
-    return results
-
-
-def apply_rules(user_symptoms, rules):
-    """
-    Aplica reglas IF-THEN definidas en la base de conocimiento.
-    
-    Args:
-        user_symptoms (list): Síntomas del usuario
-        rules (dict): Reglas definidas
-    
-    Returns:
-        list: Conclusiones derivadas de las reglas aplicadas
-    
-    TODO (Harry):
-        - Implementar evaluación de reglas
-        - Verificar condiciones (IF)
-        - Aplicar conclusiones (THEN)
-        - Considerar confianza/certeza de reglas
-    """
-    conclusions = []
-    
-    # TODO: Implementar aplicación de reglas
-    
-    return conclusions
-
-
-def get_top_diagnosis(diagnosis_results, top_n=3):
-    """
-    Obtiene las N enfermedades más probables.
-    
-    Args:
-        diagnosis_results (list): Resultados completos de inferencia
-        top_n (int): Número de resultados a retornar
-    
-    Returns:
-        list: Top N diagnósticos más probables
-    """
-    return diagnosis_results[:top_n]
-
-
-# ====================================
-# INTERPRETACIÓN DE RESULTADOS
-# ====================================
-
-def interpret_confidence(match_percentage):
-    """
-    Interpreta el porcentaje de coincidencia en categorías legibles.
-    
-    Args:
-        match_percentage (float): Porcentaje de coincidencia (0.0-1.0)
-    
-    Returns:
-        str: Interpretación ("Muy probable", "Probable", "Poco probable", etc.)
-    
-    TODO (Harry):
-        - Definir rangos de confianza
-        - Retornar interpretación apropiada
-    """
-    # TODO: Implementar interpretación
-    # Ejemplo:
-    # if match_percentage >= 0.8: return "Muy probable"
-    # elif match_percentage >= 0.6: return "Probable"
-    # elif match_percentage >= 0.4: return "Posible"
-    # else: return "Poco probable"
-    
-    return "Sin determinar"
-
-
-# ====================================
-# INTERFAZ DE RESULTADOS
-# ====================================
-
-def display_diagnosis_results(results):
-    """
-    Muestra los resultados del diagnóstico de forma visual.
-    
-    Args:
-        results (list): Lista de tuplas (enfermedad, porcentaje)
-    
-    TODO (Harry):
-        - Crear visualización clara de resultados
-        - Usar progress bars, métricas, o gráficos
-        - Mostrar interpretación de confianza
-        - Agregar recomendaciones
-    """
-    st.header("🔬 Resultados del Diagnóstico")
-    
-    if not results:
-        st.warning("No se pudo determinar un diagnóstico con los síntomas proporcionados")
-        return
-    
-    # TODO: Implementar visualización
-    # Ideas:
-    # 1. st.metric() para el diagnóstico principal
-    # 2. st.progress() para mostrar porcentajes
-    # 3. st.expander() para detalles de cada enfermedad
-    # 4. Gráfico de barras con top diagnósticos
-    
-    st.success(f"✅ Se encontraron {len(results)} posibles diagnóstico(s)")
-
-
-def display_recommendations(disease_name, disease_info):
-    """
-    Muestra recomendaciones basadas en el diagnóstico.
-    
-    Args:
-        disease_name (str): Nombre de la enfermedad diagnosticada
-        disease_info (dict): Información de la enfermedad
-    
-    TODO (Harry):
-        - Mostrar recomendaciones de la base de conocimiento
-        - Agregar advertencias médicas apropiadas
-    """
-    st.subheader("💡 Recomendaciones")
-    
-    # TODO: Implementar visualización de recomendaciones
-
-
-# ====================================
-# INTERFAZ PRINCIPAL (MODO DESARROLLO)
-# ====================================
-
-def main():
-    """
-    Función principal para ejecutar este módulo de forma independiente.
-    Útil para desarrollo y pruebas del motor de inferencia.
-    """
-    st.title("🔬 Sistema Experto - Motor de Inferencia")
-    st.markdown("**Módulo de desarrollo - Parte 3 (Harry)**")
-    
-    st.warning("⚠️ Este módulo está en desarrollo. Una vez completado, será integrado a la aplicación principal.")
-    
-    # Simulación de entrada (para pruebas)
-    st.subheader("Datos de Prueba")
-    
-    # TODO: Importar desde otros módulos cuando estén listos
-    # from symptoms import get_all_symptoms
-    # from knowledge_base import get_knowledge_base
-    
-    test_symptoms = st.multiselect(
-        "Síntomas de prueba (simular entrada del usuario):",
-        ["fiebre", "tos", "dolor de cabeza", "náuseas"],
-        default=["fiebre", "tos"]
-    )
-    
-    if st.button("🚀 Ejecutar Diagnóstico"):
-        if test_symptoms:
-            with st.spinner("Analizando síntomas..."):
-                # TODO: Llamar al motor de inferencia real
-                st.info("Motor de inferencia en desarrollo...")
-                
-                # Simulación de resultados
-                # results = infer_diagnosis(test_symptoms, knowledge_base)
-                # display_diagnosis_results(results)
+    def _calculate_duration_multiplier(self, patient_symptoms: PatientSymptoms,
+                                      matched_symptoms: Set[str]) -> float:
+        """Calcula multiplicador basado en duración de síntomas"""
+        if not matched_symptoms:
+            return 1.0
+        
+        total_duration = 0
+        count = 0
+        
+        for symptom_id in matched_symptoms:
+            duration = patient_symptoms.get_duration(symptom_id)
+            if duration > 0:
+                total_duration += duration
+                count += 1
+        
+        if count == 0:
+            return 1.0
+        
+        avg_duration = total_duration / count
+        
+        # Síntomas de 3-7 días = multiplicador óptimo
+        # Muy cortos o muy largos pueden reducir confianza
+        if avg_duration < 1:
+            return 0.85
+        elif avg_duration <= 7:
+            return 1.0 + (avg_duration - 1) * 0.02
         else:
-            st.error("Seleccione al menos un síntoma")
+            # Síntomas muy prolongados pueden indicar otra condición
+            return 1.1 - (avg_duration - 7) * 0.015
+        
+        return max(0.8, min(1.15, multiplier))
     
-    # Información de debug
-    with st.expander("🔍 Debug - Información"):
-        st.write("Síntomas seleccionados:", test_symptoms)
-
-
-if __name__ == "__main__":
-    main()
+    def _determine_risk_level(self, disease: Disease, confidence: float,
+                             patient_symptoms: PatientSymptoms) -> str:
+        """Determina el nivel de riesgo del diagnóstico"""
+        
+        # Verificar señales de advertencia
+        severity_score = patient_symptoms.calculate_severity_score(self.registry)
+        
+        # Nivel basado en urgencia de la enfermedad
+        if disease.urgency == Urgency.EMERGENCIA:
+            return "CRÍTICO"
+        elif disease.urgency == Urgency.CONSULTA_URGENTE:
+            return "ALTO"
+        elif severity_score > 20:
+            return "ALTO"
+        elif confidence > self.HIGH_CONFIDENCE_THRESHOLD:
+            return "MODERADO"
+        else:
+            return "BAJO"
+    
+    def _generate_explanation(self, disease: Disease,
+                            required_match: Set[str],
+                            common_match: Set[str],
+                            optional_match: Set[str],
+                            excluding_match: Set[str],
+                            confidence: float) -> str:
+        """Genera una explicación textual del diagnóstico"""
+        
+        parts = []
+        
+        # Síntomas requeridos
+        if required_match:
+            req_names = [self.registry.get_symptom(s).name 
+                        for s in required_match if self.registry.get_symptom(s)]
+            if req_names:
+                parts.append(f"Presenta síntomas clave: {', '.join(req_names)}")
+        
+        # Síntomas comunes
+        if common_match:
+            common_names = [self.registry.get_symptom(s).name 
+                          for s in common_match if self.registry.get_symptom(s)]
+            if common_names:
+                parts.append(f"Síntomas comunes presentes: {', '.join(common_names)}")
+        
+        # Síntomas excluyentes
+        if excluding_match:
+            excl_names = [self.registry.get_symptom(s).name 
+                         for s in excluding_match if self.registry.get_symptom(s)]
+            if excl_names:
+                parts.append(f"Presenta síntomas atípicos: {', '.join(excl_names)}")
+        
+        # Nivel de confianza
+        if confidence >= 0.8:
+            parts.append("Alta probabilidad de diagnóstico")
+        elif confidence >= 0.6:
+            parts.append("Probabilidad moderada-alta")
+        elif confidence >= 0.4:
+            parts.append("Probabilidad moderada")
+        else:
+            parts.append("Probabilidad baja, considerar otras opciones")
+        
+        return ". ".join(parts) + "."
+    
+    def _normalize_confidences(self, results: List[DiagnosisResult]) -> List[DiagnosisResult]:
+        """
+        Normaliza las confianzas para que sumen aproximadamente 1.0
+        pero manteniendo las proporciones relativas
+        """
+        if not results:
+            return results
+        
+        total = sum(r.confidence for r in results)
+        
+        if total > 0:
+            # Factor de normalización suave
+            factor = 1.0 / total
+            # Aplicar normalización parcial para no perder información
+            for result in results:
+                original = result.confidence
+                normalized = original * factor
+                # Mezclar 70% normalizado + 30% original
+                result.confidence = 0.7 * normalized + 0.3 * original
+        
+        return results
+    
+    def backward_chain(self, target_disease_id: str,
+                      patient_symptoms: PatientSymptoms) -> Tuple[bool, str]:
+        """
+        Backward chaining: Verifica si los síntomas pueden llevar a una enfermedad específica
+        Retorna (es_posible, explicación)
+        """
+        disease = self.kb.get_disease(target_disease_id)
+        if not disease:
+            return False, "Enfermedad no encontrada en la base de conocimiento"
+        
+        patient_symptom_ids = patient_symptoms.symptoms
+        
+        # Verificar síntomas requeridos
+        missing_required = disease.required_symptoms - patient_symptom_ids
+        if missing_required:
+            missing_names = [self.registry.get_symptom(s).name 
+                           for s in missing_required if self.registry.get_symptom(s)]
+            return False, (f"Faltan síntomas requeridos: {', '.join(missing_names)}. "
+                          "No es posible este diagnóstico.")
+        
+        # Verificar síntomas excluyentes
+        present_excluding = disease.excluding_symptoms & patient_symptom_ids
+        if present_excluding:
+            excl_names = [self.registry.get_symptom(s).name 
+                         for s in present_excluding if self.registry.get_symptom(s)]
+            return False, (f"Presenta síntomas que excluyen este diagnóstico: "
+                          f"{', '.join(excl_names)}")
+        
+        # Calcular qué porcentaje de síntomas comunes están presentes
+        common_match = disease.common_symptoms & patient_symptom_ids
+        common_percentage = (len(common_match) / len(disease.common_symptoms) * 100 
+                           if disease.common_symptoms else 0)
+        
+        explanation = (f"Es posible. Cumple con todos los síntomas requeridos. "
+                      f"Presenta {common_percentage:.0f}% de síntomas comunes. "
+                      f"Se recomienda evaluación médica para confirmar.")
+        
+        return True, explanation
+    
+    def get_differential_diagnosis(self, patient_symptoms: PatientSymptoms) -> List[str]:
+        """
+        Genera un diagnóstico diferencial (lista de posibilidades a considerar)
+        """
+        all_results = self.diagnose(patient_symptoms, max_results=10)
+        
+        differential = []
+        for result in all_results:
+            if result.confidence >= 0.3:
+                differential.append(
+                    f"{result.disease.name} ({result.confidence*100:.1f}% confianza)"
+                )
+        
+        return differential if differential else ["No se encontraron diagnósticos probables"]
+    
+    def suggest_additional_tests(self, diagnosis_results: List[DiagnosisResult]) -> List[str]:
+        """Sugiere pruebas o evaluaciones adicionales basadas en los diagnósticos"""
+        
+        if not diagnosis_results:
+            return ["Consultar con médico para evaluación completa"]
+        
+        top_result = diagnosis_results[0]
+        suggestions = []
+        
+        # Sugerencias basadas en la enfermedad más probable
+        disease_tests = {
+            "GRIPE": ["Test rápido de influenza", "Evaluación de saturación de oxígeno"],
+            "BRONQUITIS": ["Radiografía de tórax", "Prueba de función pulmonar"],
+            "GASTRITIS": ["Endoscopia", "Prueba de H. pylori", "Análisis de sangre"],
+            "ITU": ["Examen general de orina", "Urocultivo"],
+            "FARINGITIS": ["Cultivo de garganta", "Test rápido de estreptococo"],
+            "MIGRANA": ["Examen neurológico", "Diario de migrañas"],
+        }
+        
+        disease_id = top_result.disease.id
+        if disease_id in disease_tests:
+            suggestions.extend(disease_tests[disease_id])
+        
+        # Si confianza es baja, sugerir consulta
+        if top_result.confidence < 0.5:
+            suggestions.append("Consulta médica para diagnóstico preciso")
+        
+        return suggestions if suggestions else ["Seguimiento con médico general"]
+    
+    def analyze_symptom_patterns(self, patient_symptoms: PatientSymptoms) -> Dict[str, any]:
+        """Analiza patrones en los síntomas del paciente"""
+        
+        from collections import Counter
+        
+        categories = Counter()
+        total_severity = 0
+        chronic_symptoms = []
+        
+        for symptom_id in patient_symptoms.symptoms:
+            symptom = self.registry.get_symptom(symptom_id)
+            if symptom:
+                categories[symptom.category.value] += 1
+                
+                severity = patient_symptoms.get_severity(symptom_id)
+                if severity:
+                    total_severity += severity.value
+                
+                duration = patient_symptoms.get_duration(symptom_id)
+                if duration > 14:
+                    chronic_symptoms.append(symptom.name)
+        
+        avg_severity = total_severity / len(patient_symptoms.symptoms) if patient_symptoms.symptoms else 0
+        
+        return {
+            "dominant_category": categories.most_common(1)[0][0] if categories else "N/A",
+            "category_distribution": dict(categories),
+            "average_severity": avg_severity,
+            "chronic_symptoms": chronic_symptoms,
+            "total_symptoms": len(patient_symptoms.symptoms)
+        }
