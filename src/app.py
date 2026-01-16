@@ -314,7 +314,20 @@ def render_symptom_selector():
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        categories = list(SymptomCategory)
+        # Obtener categorías disponibles
+        categories = [
+            SymptomCategory.RESPIRATORIO,
+            SymptomCategory.DIGESTIVO,
+            SymptomCategory.NEUROLOGICO,
+            SymptomCategory.DERMATOLOGICO,
+            SymptomCategory.CARDIOVASCULAR,
+            SymptomCategory.MUSCULAR,
+            SymptomCategory.GENERAL,
+            SymptomCategory.URINARIO,
+            SymptomCategory.OFTALMOLOGICO,
+            SymptomCategory.OTORRINOLARINGOLOGICO
+        ]
+        
         category_names = [cat.value for cat in categories]
         
         selected_category = st.selectbox(
@@ -323,13 +336,24 @@ def render_symptom_selector():
             key="category_filter"
         )
         
+        # Obtener síntomas según la categoría seleccionada
         if selected_category == "Todos":
             available_symptoms = symptom_registry.get_all_symptoms()
         else:
-            cat_enum = next(cat for cat in categories if cat.value == selected_category)
-            available_symptoms = symptom_registry.get_symptoms_by_category(cat_enum)
+            # Buscar el enum que coincida con el valor seleccionado
+            cat_enum = None
+            for cat in categories:
+                if cat.value == selected_category:
+                    cat_enum = cat
+                    break
+            
+            if cat_enum:
+                available_symptoms = symptom_registry.get_symptoms_by_category(cat_enum)
+            else:
+                available_symptoms = []
         
-        symptom_options = {s.name: s.id for s in available_symptoms}
+        # Crear opciones de síntomas ordenadas alfabéticamente
+        symptom_options = {s.name: s.id for s in sorted(available_symptoms, key=lambda x: x.name)}
         
         selected_symptom_name = st.selectbox(
             "Seleccione un síntoma:",
@@ -348,51 +372,52 @@ def render_symptom_selector():
         symptom_id = symptom_options[selected_symptom_name]
         symptom = symptom_registry.get_symptom(symptom_id)
         
-        with st.expander(f"➕ Agregar: {selected_symptom_name}", expanded=True):
-            st.markdown(f"**Descripción:** {symptom.description}")
-            st.markdown(f"**Categoría:** {symptom.category.value}")
-            
-            col_sev, col_dur = st.columns(2)
-            
-            with col_sev:
-                severity = st.select_slider(
-                    "Severidad:",
-                    options=["Leve", "Moderado", "Grave", "Crítico"],
-                    value="Moderado",
-                    key=f"sev_{symptom_id}"
-                )
-            
-            with col_dur:
-                duration = st.number_input(
-                    "Duración (días):",
-                    min_value=1,
-                    max_value=365,
-                    value=1,
-                    key=f"dur_{symptom_id}"
-                )
-            
-            notes = st.text_area(
-                "Notas adicionales (opcional):",
-                key=f"notes_{symptom_id}",
-                placeholder="Ej: Dolor punzante, empeora por la noche..."
-            )
-            
-            if st.button("✅ Agregar síntoma", key=f"add_{symptom_id}"):
-                severity_map = {
-                    "Leve": SeverityLevel.LEVE,
-                    "Moderado": SeverityLevel.MODERADO,
-                    "Grave": SeverityLevel.GRAVE,
-                    "Crítico": SeverityLevel.CRITICO
-                }
+        if symptom:
+            with st.expander(f"➕ Agregar: {selected_symptom_name}", expanded=True):
+                st.markdown(f"**Descripción:** {symptom.description}")
+                st.markdown(f"**Categoría:** {symptom.category.value}")
                 
-                st.session_state.patient_symptoms.add_symptom(
-                    symptom_id,
-                    severity_map[severity],
-                    duration,
-                    notes
+                col_sev, col_dur = st.columns(2)
+                
+                with col_sev:
+                    severity = st.select_slider(
+                        "Severidad:",
+                        options=["Leve", "Moderado", "Grave", "Crítico"],
+                        value="Moderado",
+                        key=f"sev_{symptom_id}"
+                    )
+                
+                with col_dur:
+                    duration = st.number_input(
+                        "Duración (días):",
+                        min_value=1,
+                        max_value=365,
+                        value=1,
+                        key=f"dur_{symptom_id}"
+                    )
+                
+                notes = st.text_area(
+                    "Notas adicionales (opcional):",
+                    key=f"notes_{symptom_id}",
+                    placeholder="Ej: Dolor punzante, empeora por la noche..."
                 )
-                st.success(f"✅ Síntoma '{selected_symptom_name}' agregado exitosamente")
-                st.rerun()
+                
+                if st.button("✅ Agregar síntoma", key=f"add_{symptom_id}"):
+                    severity_map = {
+                        "Leve": SeverityLevel.LEVE,
+                        "Moderado": SeverityLevel.MODERADO,
+                        "Grave": SeverityLevel.GRAVE,
+                        "Crítico": SeverityLevel.CRITICO
+                    }
+                    
+                    st.session_state.patient_symptoms.add_symptom(
+                        symptom_id,
+                        severity_map[severity],
+                        duration,
+                        notes
+                    )
+                    st.success(f"✅ Síntoma '{selected_symptom_name}' agregado exitosamente")
+                    st.rerun()
 
 
 def render_current_symptoms():
