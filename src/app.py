@@ -314,20 +314,7 @@ def render_symptom_selector():
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        # Obtener categorías disponibles
-        categories = [
-            SymptomCategory.RESPIRATORIO,
-            SymptomCategory.DIGESTIVO,
-            SymptomCategory.NEUROLOGICO,
-            SymptomCategory.DERMATOLOGICO,
-            SymptomCategory.CARDIOVASCULAR,
-            SymptomCategory.MUSCULAR,
-            SymptomCategory.GENERAL,
-            SymptomCategory.URINARIO,
-            SymptomCategory.OFTALMOLOGICO,
-            SymptomCategory.OTORRINOLARINGOLOGICO
-        ]
-        
+        categories = list(SymptomCategory)
         category_names = [cat.value for cat in categories]
         
         selected_category = st.selectbox(
@@ -336,24 +323,13 @@ def render_symptom_selector():
             key="category_filter"
         )
         
-        # Obtener síntomas según la categoría seleccionada
         if selected_category == "Todos":
             available_symptoms = symptom_registry.get_all_symptoms()
         else:
-            # Buscar el enum que coincida con el valor seleccionado
-            cat_enum = None
-            for cat in categories:
-                if cat.value == selected_category:
-                    cat_enum = cat
-                    break
-            
-            if cat_enum:
-                available_symptoms = symptom_registry.get_symptoms_by_category(cat_enum)
-            else:
-                available_symptoms = []
+            cat_enum = next(cat for cat in categories if cat.value == selected_category)
+            available_symptoms = symptom_registry.get_symptoms_by_category(cat_enum)
         
-        # Crear opciones de síntomas ordenadas alfabéticamente
-        symptom_options = {s.name: s.id for s in sorted(available_symptoms, key=lambda x: x.name)}
+        symptom_options = {s.name: s.id for s in available_symptoms}
         
         selected_symptom_name = st.selectbox(
             "Seleccione un síntoma:",
@@ -372,52 +348,51 @@ def render_symptom_selector():
         symptom_id = symptom_options[selected_symptom_name]
         symptom = symptom_registry.get_symptom(symptom_id)
         
-        if symptom:
-            with st.expander(f"➕ Agregar: {selected_symptom_name}", expanded=True):
-                st.markdown(f"**Descripción:** {symptom.description}")
-                st.markdown(f"**Categoría:** {symptom.category.value}")
-                
-                col_sev, col_dur = st.columns(2)
-                
-                with col_sev:
-                    severity = st.select_slider(
-                        "Severidad:",
-                        options=["Leve", "Moderado", "Grave", "Crítico"],
-                        value="Moderado",
-                        key=f"sev_{symptom_id}"
-                    )
-                
-                with col_dur:
-                    duration = st.number_input(
-                        "Duración (días):",
-                        min_value=1,
-                        max_value=365,
-                        value=1,
-                        key=f"dur_{symptom_id}"
-                    )
-                
-                notes = st.text_area(
-                    "Notas adicionales (opcional):",
-                    key=f"notes_{symptom_id}",
-                    placeholder="Ej: Dolor punzante, empeora por la noche..."
+        with st.expander(f"➕ Agregar: {selected_symptom_name}", expanded=True):
+            st.markdown(f"**Descripción:** {symptom.description}")
+            st.markdown(f"**Categoría:** {symptom.category.value}")
+            
+            col_sev, col_dur = st.columns(2)
+            
+            with col_sev:
+                severity = st.select_slider(
+                    "Severidad:",
+                    options=["Leve", "Moderado", "Grave", "Crítico"],
+                    value="Moderado",
+                    key=f"sev_{symptom_id}"
                 )
+            
+            with col_dur:
+                duration = st.number_input(
+                    "Duración (días):",
+                    min_value=1,
+                    max_value=365,
+                    value=1,
+                    key=f"dur_{symptom_id}"
+                )
+            
+            notes = st.text_area(
+                "Notas adicionales (opcional):",
+                key=f"notes_{symptom_id}",
+                placeholder="Ej: Dolor punzante, empeora por la noche..."
+            )
+            
+            if st.button("✅ Agregar síntoma", key=f"add_{symptom_id}"):
+                severity_map = {
+                    "Leve": SeverityLevel.LEVE,
+                    "Moderado": SeverityLevel.MODERADO,
+                    "Grave": SeverityLevel.GRAVE,
+                    "Crítico": SeverityLevel.CRITICO
+                }
                 
-                if st.button("✅ Agregar síntoma", key=f"add_{symptom_id}"):
-                    severity_map = {
-                        "Leve": SeverityLevel.LEVE,
-                        "Moderado": SeverityLevel.MODERADO,
-                        "Grave": SeverityLevel.GRAVE,
-                        "Crítico": SeverityLevel.CRITICO
-                    }
-                    
-                    st.session_state.patient_symptoms.add_symptom(
-                        symptom_id,
-                        severity_map[severity],
-                        duration,
-                        notes
-                    )
-                    st.success(f"✅ Síntoma '{selected_symptom_name}' agregado exitosamente")
-                    st.rerun()
+                st.session_state.patient_symptoms.add_symptom(
+                    symptom_id,
+                    severity_map[severity],
+                    duration,
+                    notes
+                )
+                st.success(f"✅ Síntoma '{selected_symptom_name}' agregado exitosamente")
+                st.rerun()
 
 
 def render_current_symptoms():
@@ -699,46 +674,61 @@ def render_diagnosis_results():
 def generate_pdf_report():
     """Genera el reporte PDF del diagnóstico"""
     try:
-        if not st.session_state.patient_data['name']:
-            return  # Solo retorna sin mensaje
-        
-        pdf_path = pdf_generator.generate_diagnosis_report(
-            patient_data=st.session_state.patient_data,
-            patient_symptoms=st.session_state.patient_symptoms,
-            diagnosis_results=st.session_state.diagnosis_results,
-            symptom_registry=symptom_registry
-        )
-        
-        st.session_state.last_pdf_path = pdf_path
-        
+        with st.spinner("Generando reporte PDF..."):
+            # Validar que haya información del paciente
+            if not st.session_state.patient_data['name']:
+                st.warning("⚠️ Por favor ingrese el nombre del paciente")
+                return
+            
+            # Generar PDF
+            pdf_path = pdf_generator.generate_diagnosis_report(
+                patient_data=st.session_state.patient_data,
+                patient_symptoms=st.session_state.patient_symptoms,
+                diagnosis_results=st.session_state.diagnosis_results,
+                symptom_registry=symptom_registry
+            )
+            
+            st.session_state.last_pdf_path = pdf_path
+            
+            st.success(f"✅ Reporte PDF generado exitosamente: {os.path.basename(pdf_path)}")
+            
     except Exception as e:
-        pass  # Silencioso
+        st.error(f"❌ Error al generar PDF: {str(e)}")
+
 
 def save_to_history():
     """Guarda la consulta actual en el historial"""
     try:
-        if not st.session_state.patient_data['name']:
-            return  # Solo retorna sin mensaje
-        
-        symptoms_data = create_symptoms_dict_list(
-            st.session_state.patient_symptoms,
-            symptom_registry
-        )
-        
-        diagnoses_data = create_diagnoses_dict_list(
-            st.session_state.diagnosis_results
-        )
-        
-        consultation_id = history_manager.save_consultation(
-            patient_data=st.session_state.patient_data,
-            symptoms_data=symptoms_data,
-            diagnosis_results=diagnoses_data,
-            notes="",
-            pdf_path=st.session_state.last_pdf_path or ""
-        )
-        
+        with st.spinner("Guardando en historial..."):
+            # Validar datos
+            if not st.session_state.patient_data['name']:
+                st.warning("⚠️ Por favor ingrese el nombre del paciente")
+                return
+            
+            # Preparar datos de síntomas
+            symptoms_data = create_symptoms_dict_list(
+                st.session_state.patient_symptoms,
+                symptom_registry
+            )
+            
+            # Preparar datos de diagnósticos
+            diagnoses_data = create_diagnoses_dict_list(
+                st.session_state.diagnosis_results
+            )
+            
+            # Guardar
+            consultation_id = history_manager.save_consultation(
+                patient_data=st.session_state.patient_data,
+                symptoms_data=symptoms_data,
+                diagnosis_results=diagnoses_data,
+                notes="",
+                pdf_path=st.session_state.last_pdf_path or ""
+            )
+            
+            st.success(f"✅ Consulta guardada exitosamente con ID: {consultation_id}")
+            
     except Exception as e:
-        pass  # Silencioso
+        st.error(f"❌ Error al guardar en historial: {str(e)}")
 
 
 def render_history_view():
