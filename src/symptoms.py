@@ -916,6 +916,159 @@ class SymptomRegistry:
                    "Molestia oral", 1.3,
                    ["llagas", "infección"],
                    {"LLAGAS_BOCA", "DIFICULTAD_TRAGAR"}),
+            # AGREGAR ESTOS SÍNTOMAS A TU symptoms.py
+              # En la sección correspondiente del método _initialize_symptoms()
+
+              # ========== SÍNTOMAS FALTANTES ==========
+
+              # Agregar a síntomas generales/neurológicos:
+              Symptom("DOLOR_FACIAL", "Dolor facial", SymptomCategory.NEUROLOGICO,
+                     "Dolor o presión en área facial y senos paranasales", 1.6,
+                     ["sinusitis", "migraña", "infección"],
+                     {"DOLOR_CABEZA", "CONGESTION_NASAL", "PRESION_FACIAL"}),
+
+              Symptom("PRESION_FACIAL", "Presión facial", SymptomCategory.NEUROLOGICO,
+                     "Sensación de presión en rostro, especialmente en frente y mejillas", 1.5,
+                     ["sinusitis", "congestión"],
+                     {"DOLOR_FACIAL", "DOLOR_CABEZA", "CONGESTION_NASAL"}),
+
+              Symptom("HAMBRE_EXTREMA", "Hambre extrema", SymptomCategory.GENERAL,
+                     "Sensación intensa y repentina de hambre", 1.3,
+                     ["hipoglucemia", "diabetes"],
+                     {"MAREOS", "SUDORACION", "DEBILIDAD"}),
+
+              Symptom("INTOLERANCIA_CALOR", "Intolerancia al calor", SymptomCategory.GENERAL,
+                     "Sensibilidad excesiva al calor, sudoración abundante", 1.2,
+                     ["hipertiroidismo", "menopausia"],
+                     {"SUDORACION", "FATIGA"}),
+
+              Symptom("SOFOCAMIENTO", "Sofocamiento", SymptomCategory.RESPIRATORIO,
+                     "Sensación de ahogo o falta de aire", 2.3,
+                     ["ansiedad", "asma", "cardíaco"],
+                     {"DIFICULTAD_RESPIRAR", "ANSIEDAD", "OPRESION_PECHO"}),
+
+              # Agregar a síntomas digestivos:
+              Symptom("URGENCIA_DEFECACION", "Urgencia defecatoria", SymptomCategory.DIGESTIVO,
+                     "Necesidad repentina e intensa de evacuar", 1.5,
+                     ["diarrea", "SII", "infección"],
+                     {"DIARREA", "CALAMBRES_ABDOMINALES"}),
+
+              Symptom("SENSACION_EVACUACION_INCOMPLETA", "Sensación de evacuación incompleta", 
+                     SymptomCategory.DIGESTIVO,
+                     "Sensación de no haber vaciado completamente el intestino", 1.2,
+                     ["SII", "estreñimiento", "hemorroides"],
+                     {"ESTRENIMIENTO", "DOLOR_ABDOMINAL"}),
+
+              Symptom("DOLOR_ANAL", "Dolor anal", SymptomCategory.DIGESTIVO,
+                     "Dolor en el área anal o rectal", 1.7,
+                     ["hemorroides", "fisura", "infección"],
+                     {"SANGRE_HECES", "DOLOR_DEFECAR"}),
+
+              Symptom("PICAZON_ANAL", "Picazón anal", SymptomCategory.DIGESTIVO,
+                     "Comezón en el área anal", 1.1,
+                     ["hemorroides", "hongos", "higiene"],
+                     {"DOLOR_ANAL", "HINCHAZON_ANAL"}),
+
+              Symptom("HINCHAZON_ANAL", "Hinchazón anal", SymptomCategory.DIGESTIVO,
+                     "Inflamación o protrusión en área anal", 1.6,
+                     ["hemorroides", "absceso"],
+                     {"DOLOR_ANAL", "SANGRE_HECES"}),
+
+              Symptom("INCOMODIDAD_DEFECAR", "Incomodidad al defecar", SymptomCategory.DIGESTIVO,
+                     "Molestia o dolor durante la evacuación", 1.4,
+                     ["hemorroides", "fisura", "estreñimiento"],
+                     {"DOLOR_ANAL", "SANGRE_HECES"}),
+
+              Symptom("PROTRUSION_ANAL", "Protrusión anal", SymptomCategory.DIGESTIVO,
+                     "Tejido que sobresale del ano", 1.8,
+                     ["hemorroides", "prolapso"],
+                     {"DOLOR_ANAL", "HINCHAZON_ANAL"}),
+
+              Symptom("DOLOR_DEFECAR", "Dolor al defecar", SymptomCategory.DIGESTIVO,
+                     "Dolor durante o después de evacuar", 1.6,
+                     ["hemorroides", "fisura", "estreñimiento"],
+                     {"DOLOR_ANAL", "SANGRE_HECES", "ESTRENIMIENTO"}),
+
+              # Agregar a síntomas dermatológicos:
+              Symptom("HINCHAZON_LABIOS", "Hinchazón de labios", SymptomCategory.DERMATOLOGICO,
+                     "Inflamación de los labios", 1.9,
+                     ["alergia", "angioedema"],
+                     {"HINCHAZON_CARA", "URTICARIA", "DIFICULTAD_RESPIRAR"}),
+
+              Symptom("PIEL_AGRIETADA", "Piel agrietada", SymptomCategory.DERMATOLOGICO,
+                     "Grietas o fisuras en la piel", 1.3,
+                     ["sequedad", "hongos", "eccema"],
+                     {"PIEL_SECA", "DOLOR_PIEL", "DESCAMACION"}),
+
+              Symptom("OLOR_DESAGRADABLE_PIEL", "Olor desagradable en piel", 
+                     SymptomCategory.DERMATOLOGICO,
+                     "Mal olor proveniente de la piel o lesión", 1.4,
+                     ["infección", "hongos", "bacteria"],
+                     {"LESIONES_PIEL", "INFLAMACION_PIEL"}),
+
+              # Agregar a síntomas musculoesqueléticos:
+              Symptom("DIFICULTAD_MOVIMIENTO", "Dificultad para moverse", SymptomCategory.MUSCULAR,
+                     "Limitación en el rango de movimiento", 1.7,
+                     ["lesión", "artritis", "dolor"],
+                     {"RIGIDEZ", "DOLOR_ARTICULAR", "DOLOR_MUSCULAR"}),
+
+              Symptom("DOLOR_MOVIMIENTO", "Dolor al moverse", SymptomCategory.MUSCULAR,
+                     "Dolor que aparece o empeora con el movimiento", 1.6,
+                     ["lesión", "inflamación", "artritis"],
+                     {"DOLOR_ARTICULAR", "DOLOR_MUSCULAR", "RIGIDEZ"}),
+
+              # Agregar a síntomas oftalmológicos:
+              Symptom("FATIGA_OCULAR", "Fatiga ocular", SymptomCategory.OFTALMOLOGICO,
+                     "Cansancio o tensión en los ojos", 1.1,
+                     ["pantallas", "lectura prolongada", "ojo seco"],
+                     {"OJO_SECO", "VISION_BORROSA", "DOLOR_CABEZA"}),
+
+              Symptom("DIFICULTAD_LEER", "Dificultad para leer", SymptomCategory.OFTALMOLOGICO,
+                     "Problemas para enfocar texto o mantener lectura", 1.4,
+                     ["vista cansada", "ojo seco", "presbicia"],
+                     {"VISION_BORROSA", "FATIGA_OCULAR", "DOLOR_CABEZA"}),
+
+              Symptom("OJOS_SALTONES", "Ojos saltones", SymptomCategory.OFTALMOLOGICO,
+                     "Protrusión anormal de los ojos", 2.2,
+                     ["hipertiroidismo", "inflamación orbitaria"],
+                     {"VISION_DOBLE", "DOLOR_OJOS"}),
+
+              # Agregar a síntomas dermatológicos adicionales:
+              Symptom("UÑAS_QUEBRADIZAS", "Uñas quebradizas", SymptomCategory.DERMATOLOGICO,
+                     "Uñas débiles que se rompen fácilmente", 0.9,
+                     ["anemia", "deficiencia nutricional", "edad"],
+                     {"PIEL_SECA", "PERDIDA_CABELLO"}),
+
+              Symptom("PERDIDA_CABELLO", "Pérdida de cabello", SymptomCategory.DERMATOLOGICO,
+                     "Caída excesiva del cabello", 1.3,
+                     ["estrés", "hormonal", "anemia", "enfermedad"],
+                     {"FATIGA", "UÑAS_QUEBRADIZAS"}),
+
+              # Agregar síntomas que faltaban relacionados con infecciones:
+              Symptom("MAREOS_LEVES", "Mareos leves", SymptomCategory.NEUROLOGICO,
+                     "Sensación ligera de inestabilidad o aturdimiento", 1.0,
+                     ["fatiga", "deshidratación", "estrés"],
+                     {"FATIGA", "DOLOR_CABEZA"}),
+
+              Symptom("DOLOR_SENTARSE", "Dolor al sentarse", SymptomCategory.MUSCULAR,
+                     "Molestia o dolor al estar sentado", 1.5,
+                     ["hemorroides", "lesión coxis", "ciática"],
+                     {"DOLOR_ESPALDA", "DOLOR_ANAL"}),
+
+              Symptom("FIEBRE_BAJA", "Fiebre baja", SymptomCategory.GENERAL,
+                     "Temperatura elevada entre 37.5-38°C", 1.2,
+                     ["infección leve", "inflamación"],
+                     {"FATIGA", "MALESTAR_GENERAL"}),
+
+              # IMPORTANTE: También revisar que tengas estos síntomas base:
+              # Si no los tienes, agregarlos también:
+
+              Symptom("SATURACION_BAJA", "Saturación de oxígeno baja", SymptomCategory.RESPIRATORIO,
+                     "Nivel de oxígeno en sangre por debajo de 94%", 3.0,
+                     ["neumonía", "COVID", "asma severo"],
+                     {"DIFICULTAD_RESPIRAR", "CIANOSIS", "CONFUSION"})
+              
+              
         ]
         
         # Consolidar todos los síntomas
