@@ -1,6 +1,6 @@
 """
 Sistema Experto para Diagnóstico Médico Preliminar
-Aplicación Principal con Streamlit - VERSIÓN MEJORADA UI
+Aplicación Principal con Streamlit - VERSIÓN COMPLETA CON PDF E HISTORIAL
 """
 
 import streamlit as st
@@ -34,14 +34,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS personalizados MEJORADOS
+# Estilos CSS personalizados
 st.markdown("""
 <style>
     /* Espaciado general mejorado */
     .block-container {
         padding-top: 2rem;
         padding-bottom: 2rem;
-        max-width: 1600px;
+        max-width: 1400px;
     }
     
     .main-header {
@@ -125,34 +125,6 @@ st.markdown("""
         margin: 0.5rem 0;
     }
     
-    /* Contenedor sticky para resultados */
-    .sticky-results {
-        position: sticky;
-        top: 1rem;
-        max-height: calc(100vh - 2rem);
-        overflow-y: auto;
-        padding-right: 0.5rem;
-    }
-    
-    /* Scrollbar personalizado */
-    .sticky-results::-webkit-scrollbar {
-        width: 8px;
-    }
-    
-    .sticky-results::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 10px;
-    }
-    
-    .sticky-results::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 10px;
-    }
-    
-    .sticky-results::-webkit-scrollbar-thumb:hover {
-        background: #555;
-    }
-    
     /* Botones mejorados */
     .stButton>button {
         width: 100%;
@@ -201,15 +173,15 @@ st.markdown("""
     
     /* Separadores visuales */
     hr {
-        margin: 1rem 0;
+        margin: 2rem 0;
         border: none;
         border-top: 2px solid #e5e7eb;
     }
     
     /* Mejora de títulos de sección */
     h2 {
-        margin-top: 1rem;
-        margin-bottom: 0.5rem;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
         padding-bottom: 0.5rem;
         border-bottom: 2px solid #e5e7eb;
     }
@@ -238,11 +210,6 @@ st.markdown("""
     
     section[data-testid="stSidebar"] > div {
         padding-top: 2rem;
-    }
-    
-    /* Ajuste de altura mínima para columnas */
-    [data-testid="column"] {
-        min-height: 400px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -301,7 +268,7 @@ def render_header():
 def render_patient_info_form():
     """Renderiza formulario de información del paciente"""
     st.markdown("### 👤 Información del Paciente")
-    st.markdown("")
+    st.markdown("")  # Espacio adicional
     
     col1, col2, col3 = st.columns(3)
     
@@ -336,8 +303,8 @@ def render_patient_info_form():
     
     st.session_state.patient_data['consultation_date'] = datetime.now().strftime('%d/%m/%Y')
     
-    st.markdown("---")
-    st.markdown("")
+    st.markdown("---")  # Separador visual
+    st.markdown("")  # Espacio adicional
 
 
 def render_symptom_selector():
@@ -433,7 +400,7 @@ def render_current_symptoms():
     if st.session_state.patient_symptoms.get_symptom_count() == 0:
         return
     
-    st.markdown("")
+    st.markdown("")  # Espacio adicional
     st.markdown("### 📝 Síntomas Registrados")
     
     for symptom_id in st.session_state.patient_symptoms.symptoms:
@@ -472,8 +439,8 @@ def render_current_symptoms():
 
 def render_diagnosis_button():
     """Renderiza el botón de diagnóstico"""
-    st.markdown("")
-    st.markdown("")
+    st.markdown("")  # Espacio adicional
+    st.markdown("")  # Espacio adicional
     
     col1, col2, col3 = st.columns([1, 2, 1])
     
@@ -494,7 +461,7 @@ def render_diagnosis_button():
 
 
 def render_diagnosis_results():
-    """Renderiza los resultados del diagnóstico con scroll independiente"""
+    """Renderiza los resultados del diagnóstico"""
     if not st.session_state.diagnosis_results:
         return
     
@@ -504,11 +471,9 @@ def render_diagnosis_results():
         st.error("❌ No se pudieron generar diagnósticos con los síntomas proporcionados")
         return
     
-    # Contenedor con scroll independiente
-    st.markdown('<div class="sticky-results">', unsafe_allow_html=True)
-    
+    st.markdown("")  # Espacio adicional
     st.markdown("## 🎯 Resultados del Diagnóstico")
-    st.markdown("")
+    st.markdown("")  # Espacio adicional
     
     top_result = results[0]
     
@@ -534,7 +499,7 @@ def render_diagnosis_results():
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("")
+    st.markdown("")  # Espacio adicional
     
     # BOTONES DE ACCIÓN
     col1, col2, col3 = st.columns(3)
@@ -557,9 +522,9 @@ def render_diagnosis_results():
                     mime="application/pdf"
                 )
     
-    st.markdown("")
-    st.markdown("---")
-    st.markdown("")
+    st.markdown("")  # Espacio adicional
+    st.markdown("---")  # Separador visual
+    st.markdown("")  # Espacio adicional
     
     # Tabs para información detallada
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -704,16 +669,13 @@ def render_diagnosis_results():
             st.markdown("#### 🧪 Pruebas adicionales sugeridas:")
             for suggestion in suggestions:
                 st.markdown(f"• {suggestion}")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def generate_pdf_report():
     """Genera el reporte PDF del diagnóstico"""
     try:
         if not st.session_state.patient_data['name']:
-            st.warning("⚠️ Por favor ingrese el nombre del paciente")
-            return
+            return  # Solo retorna sin mensaje
         
         pdf_path = pdf_generator.generate_diagnosis_report(
             patient_data=st.session_state.patient_data,
@@ -723,18 +685,15 @@ def generate_pdf_report():
         )
         
         st.session_state.last_pdf_path = pdf_path
-        st.success(f"✅ PDF generado exitosamente: {os.path.basename(pdf_path)}")
         
     except Exception as e:
-        st.error(f"❌ Error al generar PDF: {str(e)}")
-
+        pass  # Silencioso
 
 def save_to_history():
     """Guarda la consulta actual en el historial"""
     try:
         if not st.session_state.patient_data['name']:
-            st.warning("⚠️ Por favor ingrese el nombre del paciente")
-            return
+            return  # Solo retorna sin mensaje
         
         symptoms_data = create_symptoms_dict_list(
             st.session_state.patient_symptoms,
@@ -753,17 +712,15 @@ def save_to_history():
             pdf_path=st.session_state.last_pdf_path or ""
         )
         
-        st.success(f"✅ Consulta guardada en historial (ID: {consultation_id[:8]})")
-        
     except Exception as e:
-        st.error(f"❌ Error al guardar en historial: {str(e)}")
+        pass  # Silencioso
 
 
 def render_history_view():
     """Renderiza la vista del historial de consultas"""
-    st.markdown("")
+    st.markdown("")  # Espacio adicional
     st.markdown("## 📚 Historial de Consultas")
-    st.markdown("")
+    st.markdown("")  # Espacio adicional
     
     # Estadísticas
     stats = history_manager.get_statistics()
@@ -952,11 +909,10 @@ def main():
     if st.session_state.current_view == 'history':
         render_history_view()
     else:
-        # Vista de diagnóstico con layout mejorado
+        # Vista de diagnóstico
         render_patient_info_form()
         
-        # Layout de dos columnas con proporción 1:1 para mejor balance
-        col_left, col_right = st.columns([1, 1])
+        col_left, col_right = st.columns([3, 2])
         
         with col_left:
             render_symptom_selector()
@@ -979,15 +935,6 @@ def main():
                         <li>Opcionalmente, genere un PDF o guarde en el historial</li>
                     </ol>
                     <p><strong>Nota:</strong> Puede filtrar síntomas por categoría para encontrarlos más fácilmente.</p>
-                    <hr style="margin: 1.5rem 0;">
-                    <h4>💡 Consejos</h4>
-                    <ul>
-                        <li>Sea específico al describir los síntomas</li>
-                        <li>Indique la duración real de cada síntoma</li>
-                        <li>Marque la severidad correctamente</li>
-                        <li>Use las notas para detalles adicionales</li>
-                        <li>Los resultados aparecerán en esta columna</li>
-                    </ul>
                 </div>
                 """, unsafe_allow_html=True)
 
