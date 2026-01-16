@@ -201,15 +201,15 @@ st.markdown("""
     
     /* Separadores visuales */
     hr {
-        margin: 2rem 0;
+        margin: 1rem 0;
         border: none;
         border-top: 2px solid #e5e7eb;
     }
     
     /* Mejora de títulos de sección */
     h2 {
-        margin-top: 2rem;
-        margin-bottom: 1rem;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
         padding-bottom: 0.5rem;
         border-bottom: 2px solid #e5e7eb;
     }
